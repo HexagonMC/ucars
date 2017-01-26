@@ -20,7 +20,7 @@ public class WrapperPlayServerEntityLook extends WrapperPlayServerEntity {
      * @return The current Yaw
     */
     public float getYaw() {
-        return (handle.getBytes().read(3) * 360.F) / 256.0F;
+        return (handle.getBytes().read(0) * 360.F) / 256.0F;
     }
     
     /**
@@ -28,7 +28,7 @@ public class WrapperPlayServerEntityLook extends WrapperPlayServerEntity {
      * @param value - new yaw.
     */
     public void setYaw(float value) {
-        handle.getBytes().write(3, (byte) (value * 256.0F / 360.0F));
+        handle.getBytes().write(0, (byte) (value * 256.0F / 360.0F));
     }
     
     /**
@@ -36,7 +36,7 @@ public class WrapperPlayServerEntityLook extends WrapperPlayServerEntity {
      * @return The current pitch
     */
     public float getPitch() {
-        return (handle.getBytes().read(4) * 360.F) / 256.0F;
+        return (handle.getBytes().read(1) * 360.F) / 256.0F;
     }
     
     /**
@@ -44,6 +44,6 @@ public class WrapperPlayServerEntityLook extends WrapperPlayServerEntity {
      * @param value - new pitch.
     */
     public void setPitch(float value) {
-        handle.getBytes().write(4, (byte) (value * 256.0F / 360.0F));
+        handle.getBytes().write(1, (byte) (value * 256.0F / 360.0F));
     }
 }
