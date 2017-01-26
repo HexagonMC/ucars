@@ -22,6 +22,7 @@ import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Minecart;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
@@ -44,6 +45,7 @@ import org.bukkit.event.vehicle.VehicleDestroyEvent;
 import org.bukkit.event.vehicle.VehicleEntityCollisionEvent;
 import org.bukkit.event.vehicle.VehicleExitEvent;
 import org.bukkit.event.vehicle.VehicleUpdateEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.MetadataValue;
@@ -52,6 +54,7 @@ import org.bukkit.util.Vector;
 import com.useful.uCarsAPI.CarRespawnReason;
 import com.useful.uCarsAPI.uCarCrashEvent;
 import com.useful.uCarsAPI.uCarRespawnEvent;
+import com.useful.uCarsAPI.uCarsAPI;
 import com.useful.ucars.controls.ControlSchemeManager;
 import com.useful.ucars.util.UEntityMeta;
 import com.useful.ucarsCommon.StatValue;
@@ -311,7 +314,7 @@ public class uCarsListener implements Listener {
 		String p = playername;
 		World w = plugin.getServer().getPlayer(p).getLocation().getWorld();
 		w.playSound(plugin.getServer().getPlayer(p).getLocation(),
-				Sound.BAT_TAKEOFF, 1.5f, -2);
+				Sound.ENTITY_BAT_TAKEOFF, 1.5f, -2);
 		if (ucars.carBoosts.containsKey(p)) {
 			ucars.carBoosts.remove(p);
 		}
@@ -344,7 +347,7 @@ public class uCarsListener implements Listener {
 						World w = plugin.getServer().getPlayer(p).getLocation()
 								.getWorld();
 						w.playSound(plugin.getServer().getPlayer(p)
-								.getLocation(), Sound.FIZZ, 1.5f, -2);
+								.getLocation(), Sound.BLOCK_LAVA_EXTINGUISH, 1.5f, -2);
 						double speed = current + power;
 						ucars.carBoosts.put(p, speed);
 						// Boosting!
@@ -829,11 +832,11 @@ public class uCarsListener implements Listener {
 				yaw = yaw - 360;
 			}
 			CartOrientationUtil.setYaw(car, yaw);
-			WrapperPlayServerEntityLook p = new WrapperPlayServerEntityLook();
+			/*WrapperPlayServerEntityLook p = new WrapperPlayServerEntityLook();
 			p.setEntityID(car.getEntityId());
 			p.setYaw(yaw);
 			p.setPitch(car.getLocation().getPitch());
-			p.sendPacket(player);
+			p.sendPacket(player);*/
 		}
 		
 		double multiplier = defaultSpeed;
@@ -864,7 +867,7 @@ public class uCarsListener implements Listener {
 		}
 		
 		travel = travel.setX(travel.getX()*multiplier);
-		travel = travel.setZ(travel.getZ()*multiplier); //TODO Test if this breaks block climbing or is ok
+		travel = travel.setZ(travel.getZ()*multiplier); 
 		if (usePerms) {
 			if (!player.hasPermission("ucars.cars")) {
 				player.sendMessage(ucars.colors.getInfo()
@@ -1296,11 +1299,12 @@ public class uCarsListener implements Listener {
 			event.setCollisionCancelled(false);
 			return;
 		}
-		if(cart.hasMetadata("copCar") || UEntityMeta.hasMetadata(cart, "copCar")){ 
+		/*if(cart.hasMetadata("copCar") || UEntityMeta.hasMetadata(cart, "copCar")){ 
+			Bukkit.broadcastMessage("CANCELLED AS COP CAR");
 			event.setCancelled(true);
 			event.setCollisionCancelled(false);
 			return;
-		}
+		}*/
 		if (cart.getPassenger() == null) { //Don't both to calculate with PiguCarts, etc...
 			return;
 		}
@@ -1338,10 +1342,18 @@ public class uCarsListener implements Listener {
 		UEntityMeta.removeMetadata(ent, "hitByLast");
 		UEntityMeta.setMetadata(ent, "hitByLast", new StatValue(System.currentTimeMillis(), ucars.plugin));
 		
-		double speed = cart.getVelocity().length() * 3.5;
+		/*double accel = 1;
+		if(passenger instanceof Player){
+			accel = ControlInput.getAccel(((Player)passenger), CarDirection.FORWARDS);
+		}
+		else {
+			accel = UEntityMeta.hasMetadata(cart, "currentlyStopped") ? 0:1;
+		}*/
+		Vector vel = cart.getVelocity();
+		double speed = vel.length() * 1.6; /*
 		if(passenger instanceof Villager){ //NPC car from UT
 			speed = cart.getVelocity().length()*1.6;
-		}
+		}*/
 		
 		double damage = hitby_crash_damage;
 		double pDmg = (damage * speed * 2);
@@ -1398,7 +1410,7 @@ public class uCarsListener implements Listener {
 				
 				double mult = ucars.config
 						.getDouble("general.cars.hitBy.power") / 7;
-				ent.setVelocity(cart.getVelocity().setY(0.5).multiply(mult));
+				ent.setVelocity(cart.getVelocity().clone().setY(0.5).multiply(mult));
 				
 				if(driver != null && driver.equals(ent)){
 					
@@ -1411,15 +1423,22 @@ public class uCarsListener implements Listener {
 				}
 			}
 		}
-		if (!(ent instanceof Player)) {
+		
+		boolean player = ent instanceof Player;
+		Player p = null;
+		if(player){
+			p = (Player) ent;
+		}
+		if (!(player)) {
 			return;
 		}
-		Player p = (Player) ent;
-		if (inACar(p)) {
-			return;
+		if(p != null){
+			if (inACar(p)) {
+				return;
+			}
 		}
 		
-		uCarCrashEvent evt = new uCarCrashEvent(cart, p, pDmg);
+		uCarCrashEvent evt = new uCarCrashEvent(cart, ent, pDmg);
 		Bukkit.getPluginManager().callEvent(evt);
 		if(evt.isCancelled()){
 			return;
@@ -1427,13 +1446,17 @@ public class uCarsListener implements Listener {
 		pDmg = evt.getDamageToBeDoneToTheEntity();
 		
 		double mult = ucars.config.getDouble("general.cars.hitBy.power") / 5;
-		p.setVelocity(cart.getVelocity().setY(0.5).multiply(mult));
-		p.sendMessage(ucars.colors.getInfo()
+		ent.setVelocity(cart.getVelocity().clone().setY(0.5).multiply(mult));
+		if(p != null){
+			p.sendMessage(ucars.colors.getInfo()
 				+ Lang.get("lang.messages.hitByCar"));
+		}
 		/*p.sendMessage("Speed: "+speed);
 		p.sendMessage("Crash dmg def: "+hitby_crash_damage);
 		p.sendMessage("Damage to do: "+pDmg);*/
-		p.damage(pDmg, driver);
+		if(ent instanceof LivingEntity){
+			((LivingEntity)ent).damage(pDmg, driver);
+		}
 		return;
 	}
 
@@ -1443,6 +1466,12 @@ public class uCarsListener implements Listener {
 	@EventHandler
 	void interact(PlayerInteractEvent event) {
 		if (event.isCancelled()) {
+			return;
+		}
+		if(event.getHand() == null){
+			return;
+		}
+		if(event.getHand().equals(EquipmentSlot.OFF_HAND) && !Bukkit.getServerName().toLowerCase().contains("mta")){
 			return;
 		}
 		if (!(event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
@@ -1479,7 +1508,7 @@ public class uCarsListener implements Listener {
 								+ Lang.get("lang.messages.noPlaceHere"));
 				return;
 			}
-            if(!plugin.API.runCarChecks(event.getPlayer().getItemInHand())){
+			if(!plugin.API.runCarChecks(event.getPlayer().getItemInHand())){
 				return;
 			}
 			Location loc = block.getLocation().add(0, 1.5, 0);
